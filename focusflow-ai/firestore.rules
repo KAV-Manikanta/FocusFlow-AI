@@ -1,0 +1,328 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net: Default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global Hardened Primitives
+    function isSignedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Validation Helpers
+    function isValidUser(data) {
+      return data.keys().hasAll(['userId', 'displayName', 'timezone', 'workStartHour', 'workEndHour', 'dailyFocusGoalMinutes', 'mlConsent', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['userId', 'email', 'displayName', 'roleTitle', 'timezone', 'workStartHour', 'workEndHour', 'dailyFocusGoalMinutes', 'mlConsent', 'createdAt', 'updatedAt'])
+        && data.userId == request.auth.uid
+        && isValidId(data.userId)
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 100
+        && (!('email' in data) || (data.email is string && data.email.size() <= 256))
+        && (!('roleTitle' in data) || (data.roleTitle is string && data.roleTitle.size() <= 100))
+        && data.timezone is string && data.timezone.size() >= 1 && data.timezone.size() <= 64
+        && data.workStartHour is number && data.workStartHour >= 0 && data.workStartHour <= 23
+        && data.workEndHour is number && data.workEndHour >= 1 && data.workEndHour <= 24
+        && data.dailyFocusGoalMinutes is number && data.dailyFocusGoalMinutes >= 15 && data.dailyFocusGoalMinutes <= 960
+        && data.mlConsent is bool;
+    }
+
+    function isValidTask(data) {
+      return data.keys().hasAll(['userId', 'title', 'category', 'priority', 'status', 'deadline', 'estimatedMinutes', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['userId', 'title', 'description', 'category', 'tags', 'priority', 'status', 'deadline', 'estimatedMinutes', 'actualMinutes', 'mlPredictedMinutes', 'mlPriorityScore', 'mlRiskScore', 'mlRiskLevel', 'recurrence', 'dependencies', 'subtasks', 'completedAt', 'createdAt', 'updatedAt'])
+        && data.userId == request.auth.uid
+        && isValidId(data.userId)
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 200
+        && (!('description' in data) || (data.description is string && data.description.size() <= 2000))
+        && data.category is string && data.category.size() >= 1 && data.category.size() <= 64
+        && (!('tags' in data) || (data.tags is list && data.tags.size() <= 10 && (data.tags.size() == 0 || (data.tags[0] is string && data.tags[0].size() <= 40))))
+        && data.priority in ['Low', 'Medium', 'High', 'Critical']
+        && data.status in ['Todo', 'In Progress', 'Completed', 'Archived']
+        && data.deadline is string && data.deadline.size() >= 1 && data.deadline.size() <= 64
+        && data.estimatedMinutes is number && data.estimatedMinutes >= 5 && data.estimatedMinutes <= 1440
+        && (!('actualMinutes' in data) || (data.actualMinutes is number && data.actualMinutes >= 0 && data.actualMinutes <= 2880))
+        && (!('mlPredictedMinutes' in data) || (data.mlPredictedMinutes is number && data.mlPredictedMinutes >= 1 && data.mlPredictedMinutes <= 2880))
+        && (!('mlPriorityScore' in data) || (data.mlPriorityScore is number && data.mlPriorityScore >= 0 && data.mlPriorityScore <= 100))
+        && (!('mlRiskScore' in data) || (data.mlRiskScore is number && data.mlRiskScore >= 0 && data.mlRiskScore <= 100))
+        && (!('mlRiskLevel' in data) || (data.mlRiskLevel in ['Low', 'Moderate', 'High', 'Critical']))
+        && (!('recurrence' in data) || (data.recurrence in ['None', 'Daily', 'Weekly', 'Monthly']))
+        && (!('dependencies' in data) || (data.dependencies is list && data.dependencies.size() <= 10 && (data.dependencies.size() == 0 || (data.dependencies[0] is string && data.dependencies[0].size() <= 128))))
+        && (!('subtasks' in data) || (data.subtasks is list && data.subtasks.size() <= 20))
+        && (!('completedAt' in data) || (data.completedAt is string && data.completedAt.size() <= 64));
+    }
+
+    function isValidSchedule(data) {
+      return data.keys().hasAll(['userId', 'date', 'status', 'blocks', 'unscheduledTaskIds', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['userId', 'date', 'status', 'blocks', 'unscheduledTaskIds', 'efficiencyScore', 'createdAt', 'updatedAt'])
+        && data.userId == request.auth.uid
+        && isValidId(data.userId)
+        && data.date is string && data.date.size() >= 8 && data.date.size() <= 32
+        && data.status in ['draft', 'approved']
+        && data.blocks is list && data.blocks.size() <= 50
+        && data.unscheduledTaskIds is list && data.unscheduledTaskIds.size() <= 50
+        && (!('efficiencyScore' in data) || (data.efficiencyScore is number && data.efficiencyScore >= 0 && data.efficiencyScore <= 100));
+    }
+
+    function isValidHabit(data) {
+      return data.keys().hasAll(['userId', 'title', 'category', 'frequency', 'currentStreak', 'longestStreak', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['userId', 'title', 'category', 'frequency', 'targetCount', 'reminderTime', 'currentStreak', 'longestStreak', 'completedDates', 'createdAt', 'updatedAt'])
+        && data.userId == request.auth.uid
+        && isValidId(data.userId)
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 120
+        && data.category is string && data.category.size() >= 1 && data.category.size() <= 64
+        && data.frequency in ['Daily', 'Weekly']
+        && (!('targetCount' in data) || (data.targetCount is number && data.targetCount >= 1 && data.targetCount <= 30))
+        && (!('reminderTime' in data) || (data.reminderTime is string && data.reminderTime.size() <= 16))
+        && data.currentStreak is number && data.currentStreak >= 0 && data.currentStreak <= 10000
+        && data.longestStreak is number && data.longestStreak >= 0 && data.longestStreak <= 10000
+        && (!('completedDates' in data) || (data.completedDates is list && data.completedDates.size() <= 90 && (data.completedDates.size() == 0 || (data.completedDates[0] is string && data.completedDates[0].size() <= 32))));
+    }
+
+    function isValidHabitLog(data) {
+      return data.keys().hasAll(['userId', 'habitId', 'date', 'completed', 'createdAt'])
+        && data.keys().hasOnly(['userId', 'habitId', 'date', 'completed', 'createdAt'])
+        && data.userId == request.auth.uid
+        && isValidId(data.userId)
+        && isValidId(data.habitId)
+        && data.date is string && data.date.size() >= 8 && data.date.size() <= 32
+        && data.completed is bool;
+    }
+
+    function isValidFocusSession(data) {
+      return data.keys().hasAll(['userId', 'mode', 'plannedMinutes', 'actualMinutes', 'completed', 'startedAt', 'createdAt'])
+        && data.keys().hasOnly(['userId', 'taskId', 'taskTitle', 'mode', 'plannedMinutes', 'actualMinutes', 'completed', 'startedAt', 'endedAt', 'createdAt'])
+        && data.userId == request.auth.uid
+        && isValidId(data.userId)
+        && (!('taskId' in data) || (data.taskId is string && data.taskId.size() <= 128))
+        && (!('taskTitle' in data) || (data.taskTitle is string && data.taskTitle.size() <= 200))
+        && data.mode in ['pomodoro', 'custom', 'short_break', 'long_break']
+        && data.plannedMinutes is number && data.plannedMinutes >= 1 && data.plannedMinutes <= 480
+        && data.actualMinutes is number && data.actualMinutes >= 0 && data.actualMinutes <= 480
+        && data.completed is bool
+        && data.startedAt is string && data.startedAt.size() <= 64
+        && (!('endedAt' in data) || (data.endedAt is string && data.endedAt.size() <= 64));
+    }
+
+    function isValidProductivityLog(data) {
+      return data.keys().hasAll(['userId', 'date', 'productivityScore', 'tasksCompleted', 'focusMinutes', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['userId', 'date', 'productivityScore', 'tasksCompleted', 'plannedMinutes', 'actualMinutes', 'focusMinutes', 'delayedTasks', 'createdAt', 'updatedAt'])
+        && data.userId == request.auth.uid
+        && isValidId(data.userId)
+        && data.date is string && data.date.size() >= 8 && data.date.size() <= 32
+        && data.productivityScore is number && data.productivityScore >= 0 && data.productivityScore <= 100
+        && data.tasksCompleted is number && data.tasksCompleted >= 0 && data.tasksCompleted <= 500
+        && data.focusMinutes is number && data.focusMinutes >= 0 && data.focusMinutes <= 1440
+        && (!('plannedMinutes' in data) || (data.plannedMinutes is number && data.plannedMinutes >= 0 && data.plannedMinutes <= 1440))
+        && (!('actualMinutes' in data) || (data.actualMinutes is number && data.actualMinutes >= 0 && data.actualMinutes <= 1440))
+        && (!('delayedTasks' in data) || (data.delayedTasks is number && data.delayedTasks >= 0 && data.delayedTasks <= 500));
+    }
+
+    function isValidConversation(data) {
+      return data.keys().hasAll(['userId', 'title', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['userId', 'title', 'createdAt', 'updatedAt'])
+        && data.userId == request.auth.uid
+        && isValidId(data.userId)
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 160;
+    }
+
+    function isValidMessage(data, conversationId) {
+      return data.keys().hasAll(['userId', 'conversationId', 'role', 'content', 'createdAt'])
+        && data.keys().hasOnly(['userId', 'conversationId', 'role', 'content', 'proposedAction', 'createdAt'])
+        && data.userId == request.auth.uid
+        && isValidId(data.userId)
+        && data.conversationId == conversationId
+        && data.role in ['user', 'assistant']
+        && data.content is string && data.content.size() >= 1 && data.content.size() <= 8000
+        && (!('proposedAction' in data) || (data.proposedAction is map));
+    }
+
+    function isValidNotification(data) {
+      return data.keys().hasAll(['userId', 'type', 'title', 'message', 'read', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['userId', 'type', 'title', 'message', 'read', 'createdAt', 'updatedAt'])
+        && data.userId == request.auth.uid
+        && isValidId(data.userId)
+        && data.type in ['deadline', 'overdue', 'planning', 'habit', 'focus', 'conflict']
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 160
+        && data.message is string && data.message.size() >= 1 && data.message.size() <= 600
+        && data.read is bool;
+    }
+
+    function isValidMLPrediction(data) {
+      return data.keys().hasAll(['userId', 'modelName', 'modelVersion', 'targetId', 'predictionValue', 'confidence', 'createdAt'])
+        && data.keys().hasOnly(['userId', 'modelName', 'modelVersion', 'targetId', 'predictionValue', 'confidence', 'createdAt'])
+        && data.userId == request.auth.uid
+        && isValidId(data.userId)
+        && data.modelName is string && data.modelName.size() >= 1 && data.modelName.size() <= 80
+        && data.modelVersion is string && data.modelVersion.size() >= 1 && data.modelVersion.size() <= 32
+        && data.targetId is string && data.targetId.size() >= 1 && data.targetId.size() <= 128
+        && data.predictionValue is number
+        && data.confidence is number && data.confidence >= 0 && data.confidence <= 1;
+    }
+
+    // Collection 0: user_secrets (the user's own Gemini key; owner-only, never listable)
+    match /user_secrets/{userId} {
+      allow get: if isValidId(userId) && isOwner(userId);
+      allow create, update: if isValidId(userId) && isOwner(userId)
+        && incoming().keys().hasAll(['userId', 'geminiKey', 'updatedAt'])
+        && incoming().keys().hasOnly(['userId', 'geminiKey', 'geminiModel', 'updatedAt'])
+        && incoming().userId == request.auth.uid
+        && incoming().geminiKey is string && incoming().geminiKey.size() >= 10 && incoming().geminiKey.size() <= 512
+        && (!('geminiModel' in incoming()) || (incoming().geminiModel is string && incoming().geminiModel.size() <= 100))
+        && incoming().updatedAt == request.time;
+      allow delete: if isValidId(userId) && isOwner(userId);
+    }
+
+    // Collection 1: users (PII strictly restricted to owner)
+    match /users/{userId} {
+      allow get: if isValidId(userId) && isOwner(userId);
+      allow create: if isValidId(userId) && isOwner(userId) && isValidUser(incoming())
+        && incoming().createdAt == request.time && incoming().updatedAt == request.time;
+      allow update: if isValidId(userId) && isOwner(userId) && isValidUser(incoming())
+        && incoming().userId == existing().userId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'roleTitle', 'timezone', 'workStartHour', 'workEndHour', 'dailyFocusGoalMinutes', 'mlConsent', 'updatedAt']);
+    }
+
+    // Collection 2: tasks
+    match /tasks/{taskId} {
+      allow get: if isValidId(taskId) && isOwner(existing().userId);
+      allow list: if isSignedIn() && existing().userId == request.auth.uid;
+      allow create: if isValidId(taskId) && isSignedIn() && isValidTask(incoming())
+        && incoming().createdAt == request.time && incoming().updatedAt == request.time;
+      allow update: if isValidId(taskId) && isOwner(existing().userId) && isValidTask(incoming())
+        && incoming().userId == existing().userId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'category', 'tags', 'priority', 'status', 'deadline', 'estimatedMinutes', 'actualMinutes', 'mlPredictedMinutes', 'mlPriorityScore', 'mlRiskScore', 'mlRiskLevel', 'recurrence', 'dependencies', 'subtasks', 'completedAt', 'updatedAt']);
+      allow delete: if isValidId(taskId) && isOwner(existing().userId);
+    }
+
+    // Collection 3: schedules
+    match /schedules/{scheduleId} {
+      allow get: if isValidId(scheduleId) && isOwner(existing().userId);
+      allow list: if isSignedIn() && existing().userId == request.auth.uid;
+      allow create: if isValidId(scheduleId) && isSignedIn() && isValidSchedule(incoming())
+        && incoming().createdAt == request.time && incoming().updatedAt == request.time;
+      allow update: if isValidId(scheduleId) && isOwner(existing().userId) && isValidSchedule(incoming())
+        && incoming().userId == existing().userId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'blocks', 'unscheduledTaskIds', 'efficiencyScore', 'updatedAt']);
+      allow delete: if isValidId(scheduleId) && isOwner(existing().userId);
+    }
+
+    // Collection 4: habits
+    match /habits/{habitId} {
+      allow get: if isValidId(habitId) && isOwner(existing().userId);
+      allow list: if isSignedIn() && existing().userId == request.auth.uid;
+      allow create: if isValidId(habitId) && isSignedIn() && isValidHabit(incoming())
+        && incoming().createdAt == request.time && incoming().updatedAt == request.time;
+      allow update: if isValidId(habitId) && isOwner(existing().userId) && isValidHabit(incoming())
+        && incoming().userId == existing().userId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'category', 'frequency', 'targetCount', 'reminderTime', 'currentStreak', 'longestStreak', 'completedDates', 'updatedAt']);
+      allow delete: if isValidId(habitId) && isOwner(existing().userId);
+    }
+
+    // Collection 5: habit_logs
+    match /habit_logs/{logId} {
+      allow get: if isValidId(logId) && isOwner(existing().userId);
+      allow list: if isSignedIn() && existing().userId == request.auth.uid;
+      allow create: if isValidId(logId) && isSignedIn() && isValidHabitLog(incoming())
+        && incoming().createdAt == request.time
+        && exists(/databases/$(database)/documents/habits/$(incoming().habitId))
+        && get(/databases/$(database)/documents/habits/$(incoming().habitId)).data.userId == request.auth.uid;
+      allow delete: if isValidId(logId) && isOwner(existing().userId);
+    }
+
+    // Collection 6: focus_sessions
+    match /focus_sessions/{sessionId} {
+      allow get: if isValidId(sessionId) && isOwner(existing().userId);
+      allow list: if isSignedIn() && existing().userId == request.auth.uid;
+      allow create: if isValidId(sessionId) && isSignedIn() && isValidFocusSession(incoming())
+        && incoming().createdAt == request.time;
+      allow delete: if isValidId(sessionId) && isOwner(existing().userId);
+    }
+
+    // Collection 7: productivity_logs
+    match /productivity_logs/{logId} {
+      allow get: if isValidId(logId) && isOwner(existing().userId);
+      allow list: if isSignedIn() && existing().userId == request.auth.uid;
+      allow create: if isValidId(logId) && isSignedIn() && isValidProductivityLog(incoming())
+        && incoming().createdAt == request.time && incoming().updatedAt == request.time;
+      allow update: if isValidId(logId) && isOwner(existing().userId) && isValidProductivityLog(incoming())
+        && incoming().userId == existing().userId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['productivityScore', 'tasksCompleted', 'plannedMinutes', 'actualMinutes', 'focusMinutes', 'delayedTasks', 'updatedAt']);
+    }
+
+    // Collection 8: ai_conversations & messages subcollection
+    match /ai_conversations/{conversationId} {
+      allow get: if isValidId(conversationId) && isOwner(existing().userId);
+      allow list: if isSignedIn() && existing().userId == request.auth.uid;
+      allow create: if isValidId(conversationId) && isSignedIn() && isValidConversation(incoming())
+        && incoming().createdAt == request.time && incoming().updatedAt == request.time;
+      allow update: if isValidId(conversationId) && isOwner(existing().userId) && isValidConversation(incoming())
+        && incoming().userId == existing().userId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'updatedAt']);
+      allow delete: if isValidId(conversationId) && isOwner(existing().userId);
+
+      // Master Gate on subcollection messages
+      match /messages/{messageId} {
+        allow get: if isValidId(conversationId) && isValidId(messageId)
+          && isOwner(existing().userId)
+          && get(/databases/$(database)/documents/ai_conversations/$(conversationId)).data.userId == request.auth.uid;
+        allow list: if isSignedIn() && existing().userId == request.auth.uid;
+        allow create: if isValidId(conversationId) && isValidId(messageId)
+          && isSignedIn() && isValidMessage(incoming(), conversationId)
+          && incoming().createdAt == request.time
+          && exists(/databases/$(database)/documents/ai_conversations/$(conversationId))
+          && get(/databases/$(database)/documents/ai_conversations/$(conversationId)).data.userId == request.auth.uid;
+      }
+    }
+
+    // Collection 9: notifications
+    match /notifications/{notificationId} {
+      allow get: if isValidId(notificationId) && isOwner(existing().userId);
+      allow list: if isSignedIn() && existing().userId == request.auth.uid;
+      allow create: if isValidId(notificationId) && isSignedIn() && isValidNotification(incoming())
+        && incoming().createdAt == request.time && incoming().updatedAt == request.time;
+      allow update: if isValidId(notificationId) && isOwner(existing().userId) && isValidNotification(incoming())
+        && incoming().userId == existing().userId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['read', 'updatedAt']);
+      allow delete: if isValidId(notificationId) && isOwner(existing().userId);
+    }
+
+    // Collection 10: ml_predictions
+    match /ml_predictions/{predictionId} {
+      allow get: if isValidId(predictionId) && isOwner(existing().userId);
+      allow list: if isSignedIn() && existing().userId == request.auth.uid;
+      allow create: if isValidId(predictionId) && isSignedIn() && isValidMLPrediction(incoming())
+        && incoming().createdAt == request.time;
+    }
+  }
+}

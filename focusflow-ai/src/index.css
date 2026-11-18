@@ -1,0 +1,49 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-mono: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+@utility shadow-card {
+  box-shadow: 0 1px 2px rgba(20, 20, 43, 0.04), 0 8px 24px rgba(91, 63, 224, 0.05);
+}
+
+@layer base {
+  :root {
+    --bg-canvas: #F4F5FB;
+    --bg-surface: #FFFFFF;
+    --accent-primary: #5B3FE0;
+    --accent-gradient: linear-gradient(135deg, #4F3BD9 0%, #7A3FEA 100%);
+    --color-success: #16A34A;
+    --color-warning: #D97706;
+    --color-danger: #DC2626;
+    --text-primary: #14142B;
+    --text-muted: #7A7D96;
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    color-scheme: light;
+  }
+
+  body {
+    background-color: #F4F5FB;
+    color: #14142B;
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, h4, .font-display {
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    letter-spacing: -0.02em;
+  }
+
+  /* Numerals use the same friendly sans as the design, with aligned digits */
+  .font-mono, .tabular-nums {
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-variant-numeric: tabular-nums;
+  }
+
+  button { cursor: pointer; }
+}

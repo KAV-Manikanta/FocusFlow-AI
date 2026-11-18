@@ -1,0 +1,237 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile, working hours, timezone, and productivity preferences.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "email": { "type": "string", "format": "email", "maxLength": 256 },
+        "displayName": { "type": "string", "maxLength": 100 },
+        "roleTitle": { "type": "string", "maxLength": 100 },
+        "timezone": { "type": "string", "maxLength": 64 },
+        "workStartHour": { "type": "number" },
+        "workEndHour": { "type": "number" },
+        "dailyFocusGoalMinutes": { "type": "number" },
+        "mlConsent": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "displayName", "timezone", "workStartHour", "workEndHour", "dailyFocusGoalMinutes", "mlConsent", "createdAt", "updatedAt"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "Smart task with subtasks, dependencies, recurring rules, and ML predictions.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "category": { "type": "string", "maxLength": 64 },
+        "tags": { "type": "array", "description": "Up to 10 string tags" },
+        "priority": { "type": "string", "enum": ["Low", "Medium", "High", "Critical"] },
+        "status": { "type": "string", "enum": ["Todo", "In Progress", "Completed", "Archived"] },
+        "deadline": { "type": "string", "maxLength": 64 },
+        "estimatedMinutes": { "type": "number" },
+        "actualMinutes": { "type": "number" },
+        "mlPredictedMinutes": { "type": "number" },
+        "mlPriorityScore": { "type": "number" },
+        "mlRiskScore": { "type": "number" },
+        "mlRiskLevel": { "type": "string", "enum": ["Low", "Moderate", "High", "Critical"] },
+        "recurrence": { "type": "string", "enum": ["None", "Daily", "Weekly", "Monthly"] },
+        "dependencies": { "type": "array", "description": "Up to 10 task IDs" },
+        "subtasks": { "type": "array", "description": "Up to 20 subtask objects" },
+        "completedAt": { "type": "string", "maxLength": 64 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "category", "priority", "status", "deadline", "estimatedMinutes", "createdAt", "updatedAt"]
+    },
+    "Schedule": {
+      "title": "Schedule",
+      "description": "AI-generated daily schedule with time blocks, breaks, and unscheduled task overflow.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "date": { "type": "string", "maxLength": 32 },
+        "status": { "type": "string", "enum": ["draft", "approved"] },
+        "blocks": { "type": "array", "description": "Scheduled blocks for the day" },
+        "unscheduledTaskIds": { "type": "array", "description": "Task IDs that could not fit" },
+        "efficiencyScore": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "date", "status", "blocks", "unscheduledTaskIds", "createdAt", "updatedAt"]
+    },
+    "Habit": {
+      "title": "Habit",
+      "description": "Recurring habit definition and streak counters.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "category": { "type": "string", "maxLength": 64 },
+        "frequency": { "type": "string", "enum": ["Daily", "Weekly"] },
+        "targetCount": { "type": "number" },
+        "reminderTime": { "type": "string", "maxLength": 16 },
+        "currentStreak": { "type": "number" },
+        "longestStreak": { "type": "number" },
+        "completedDates": { "type": "array", "description": "Recent completion ISO dates (max 90)" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "category", "frequency", "currentStreak", "longestStreak", "createdAt", "updatedAt"]
+    },
+    "HabitLog": {
+      "title": "HabitLog",
+      "description": "Individual habit completion log record.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "habitId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "date": { "type": "string", "maxLength": 32 },
+        "completed": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "habitId", "date", "completed", "createdAt"]
+    },
+    "FocusSession": {
+      "title": "FocusSession",
+      "description": "Completed or active Pomodoro / deep focus session.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "taskId": { "type": "string", "maxLength": 128 },
+        "taskTitle": { "type": "string", "maxLength": 200 },
+        "mode": { "type": "string", "enum": ["pomodoro", "custom", "short_break", "long_break"] },
+        "plannedMinutes": { "type": "number" },
+        "actualMinutes": { "type": "number" },
+        "completed": { "type": "boolean" },
+        "startedAt": { "type": "string", "maxLength": 64 },
+        "endedAt": { "type": "string", "maxLength": 64 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "mode", "plannedMinutes", "actualMinutes", "completed", "startedAt", "createdAt"]
+    },
+    "ProductivityLog": {
+      "title": "ProductivityLog",
+      "description": "Daily aggregated productivity telemetry for analytics and ML training.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "date": { "type": "string", "maxLength": 32 },
+        "productivityScore": { "type": "number" },
+        "tasksCompleted": { "type": "number" },
+        "plannedMinutes": { "type": "number" },
+        "actualMinutes": { "type": "number" },
+        "focusMinutes": { "type": "number" },
+        "delayedTasks": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "date", "productivityScore", "tasksCompleted", "focusMinutes", "createdAt", "updatedAt"]
+    },
+    "AIConversation": {
+      "title": "AIConversation",
+      "description": "Conversation thread metadata for the Gemini AI Assistant.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "maxLength": 160 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "createdAt", "updatedAt"]
+    },
+    "AIMessage": {
+      "title": "AIMessage",
+      "description": "Individual chat message in ai_conversations/{conversationId}/messages/{messageId}.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "conversationId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "role": { "type": "string", "enum": ["user", "assistant"] },
+        "content": { "type": "string", "maxLength": 8000 },
+        "proposedAction": { "type": "object", "description": "Optional structured action proposal" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "conversationId", "role", "content", "createdAt"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "Smart notification alert for deadlines, habits, focus, and schedule conflicts.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "type": { "type": "string", "enum": ["deadline", "overdue", "planning", "habit", "focus", "conflict"] },
+        "title": { "type": "string", "maxLength": 160 },
+        "message": { "type": "string", "maxLength": 600 },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "type", "title", "message", "read", "createdAt", "updatedAt"]
+    },
+    "MLPrediction": {
+      "title": "MLPrediction",
+      "description": "Versioned machine learning prediction record.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "modelName": { "type": "string", "maxLength": 80 },
+        "modelVersion": { "type": "string", "maxLength": 32 },
+        "targetId": { "type": "string", "maxLength": 128 },
+        "predictionValue": { "type": "number" },
+        "confidence": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "modelName", "modelVersion", "targetId", "predictionValue", "confidence", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profile and productivity configuration."
+    },
+    "/tasks/{taskId}": {
+      "schema": { "$ref": "#/entities/Task" },
+      "description": "User tasks with ML priority and duration metadata."
+    },
+    "/schedules/{scheduleId}": {
+      "schema": { "$ref": "#/entities/Schedule" },
+      "description": "Daily constraint-optimized schedules."
+    },
+    "/habits/{habitId}": {
+      "schema": { "$ref": "#/entities/Habit" },
+      "description": "User habit definitions and streaks."
+    },
+    "/habit_logs/{logId}": {
+      "schema": { "$ref": "#/entities/HabitLog" },
+      "description": "Habit completion log entries."
+    },
+    "/focus_sessions/{sessionId}": {
+      "schema": { "$ref": "#/entities/FocusSession" },
+      "description": "Pomodoro and deep work focus session records."
+    },
+    "/productivity_logs/{logId}": {
+      "schema": { "$ref": "#/entities/ProductivityLog" },
+      "description": "Daily aggregated productivity metrics."
+    },
+    "/ai_conversations/{conversationId}": {
+      "schema": { "$ref": "#/entities/AIConversation" },
+      "description": "Gemini AI conversation threads."
+    },
+    "/ai_conversations/{conversationId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/AIMessage" },
+      "description": "Subcollection of chat messages inside a conversation."
+    },
+    "/notifications/{notificationId}": {
+      "schema": { "$ref": "#/entities/Notification" },
+      "description": "Smart notifications for deadlines, habits, and conflicts."
+    },
+    "/ml_predictions/{predictionId}": {
+      "schema": { "$ref": "#/entities/MLPrediction" },
+      "description": "Audit log of ML predictions."
+    }
+  }
+}
